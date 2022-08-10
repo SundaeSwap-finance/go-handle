@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	gohandle "github.com/SundaeSwap-finance/go-handle"
 )
@@ -45,8 +46,15 @@ func New(key string) BlockfrostWebResolver {
 }
 
 func (b BlockfrostWebResolver) FindAsset(ctx context.Context, policyId string, assetNameHex string) (gohandle.AssetAddress, error) {
-
-	url := fmt.Sprintf("https://cardano-mainnet.blockfrost.io/api/v0/assets/%v%v/addresses", policyId, assetNameHex)
+	base := ""
+	if strings.HasPrefix(b.key, "mainnet") {
+		base = "https://cardano-mainnet.blockfrost.io/api/v0"
+	} else if strings.HasPrefix(b.key, "testnet") {
+		base = "https://cardano-testnet.blockfrost.io/api/v0"
+	} else {
+		return gohandle.AssetAddress{}, fmt.Errorf("unrecognized environment")
+	}
+	url := fmt.Sprintf("%v/assets/%v%v/addresses", base, policyId, assetNameHex)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return gohandle.AssetAddress{}, fmt.Errorf("failed to query blockfrost: %w", err)
