@@ -74,3 +74,22 @@ func (m MockResolver) FindAsset(ctx context.Context, policyId string, assetHex s
 	}
 	return gohandle.AssetAddress{}, fmt.Errorf("handle not found: %w", err)
 }
+
+func (m MockResolver) LookupAddress(ctx context.Context, address string) ([]gohandle.AssetQuantity, error) {
+	var ret []gohandle.AssetQuantity
+	policyId := ""
+	if m.Environment == gohandle.Mainnet {
+		policyId = gohandle.MainnetPolicyId
+	} else if m.Environment == gohandle.Testnet {
+		policyId = gohandle.TestnetPolicyId
+	}
+	for handle, addr := range m.Handles {
+		if addr == address {
+			ret = append(ret, gohandle.AssetQuantity{
+				Asset:    fmt.Sprintf("%v%v", policyId, hex.EncodeToString([]byte(handle))),
+				Quantity: "1",
+			})
+		}
+	}
+	return ret, nil
+}

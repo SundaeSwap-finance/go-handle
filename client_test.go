@@ -56,3 +56,11 @@ func Test_CrossEnv(t *testing.T) {
 	_, err := c.ResolveAddress("abc")
 	assert.NotNil(t, err)
 }
+
+func Test_Reverse(t *testing.T) {
+	m := mock.New(gohandle.Mainnet, [][]string{{"abc", "addr1xyz"}, {"xyz", "addr1xyz"}, {"www", "addr1www"}})
+	c := gohandle.New(gohandle.Mainnet, m)
+	handles, err := c.LookupHandles("addr1xyz")
+	assert.Nil(t, err)
+	assert.ElementsMatch(t, handles, []string{"abc", "xyz"})
+}

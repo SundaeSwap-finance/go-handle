@@ -25,6 +25,7 @@ package blockfrost
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	gohandle "github.com/SundaeSwap-finance/go-handle"
 	bfrost "github.com/blockfrost/blockfrost-go"
@@ -54,4 +55,42 @@ func (b BlockfrostResolver) FindAsset(ctx context.Context, policyId string, asse
 	return gohandle.AssetAddress{
 		Address: addresses[0].Address,
 	}, nil
+}
+
+func (b BlockfrostResolver) LookupAddress(ctx context.Context, address string) ([]gohandle.AssetQuantity, error) {
+	switch {
+	case strings.HasPrefix(address, "stake"):
+		assets := b.client.AccountAssociatedAssetsAll(ctx, address)
+		var assetQty []gohandle.AssetQuantity
+		for resp := range assets {
+			if resp.Err != nil {
+				return nil, fmt.Errorf("unable to fetch associated assets: %w", resp.Err)
+			}
+			for _, each := range resp.Res {
+				assetQty = append(assetQty, gohandle.AssetQuantity{
+					Asset:    each.Unit,
+					Quantity: each.Quantity,
+				})
+			}
+		}
+		return assetQty, nil
+	case strings.HasPrefix(address, "addr"):
+		utxos := b.client.AddressUTXOsAll(ctx, address)
+		var assetQty []gohandle.AssetQuantity
+		for resp := range utxos {
+			if resp.Err != nil {
+				return nil, fmt.Errorf("unable to fetch utxos for address: %w", resp.Err)
+			}
+			for _, row := range resp.Res {
+				for _, each := range row.Amount {
+					assetQty = append(assetQty, gohandle.AssetQuantity{
+						Asset:    each.Unit,
+						Quantity: each.Quantity,
+					})
+				}
+			}
+		}
+		return assetQty, nil
+	}
+	return nil, fmt.Errorf("unrecognized address %v", address)
 }

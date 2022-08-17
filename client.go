@@ -45,8 +45,14 @@ type AssetAddress struct {
 	Address string
 }
 
+type AssetQuantity struct {
+	Asset    string
+	Quantity string
+}
+
 type Resolver interface {
 	FindAsset(ctx context.Context, policyId string, assetNameHex string) (AssetAddress, error)
+	LookupAddress(ctx context.Context, address string) ([]AssetQuantity, error)
 }
 
 type Client struct {
@@ -92,4 +98,27 @@ func (c Client) ResolveAddressWithContext(ctx context.Context, handle string) (a
 		return "", fmt.Errorf("unable to resolve handle: %w", err)
 	}
 	return addr.Address, nil
+}
+
+func (c Client) LookupHandles(address string) (handles []string, err error) {
+	return c.LookupHandlesWithContext(context.Background(), address)
+}
+
+func (c Client) LookupHandlesWithContext(ctx context.Context, address string) (handles []string, err error) {
+	assets, err := c.resolver.LookupAddress(ctx, address)
+	if err != nil {
+		return nil, fmt.Errorf("unable to lookup address: %w", err)
+	}
+	policyId := envToPolicyId(c.env)
+	for _, asset := range assets {
+		if strings.HasPrefix(asset.Asset, policyId) {
+			handleHex := strings.TrimPrefix(asset.Asset, policyId)
+			b, err := hex.DecodeString(handleHex)
+			if err != nil {
+				return nil, fmt.Errorf("invalid handle %v: %w", handleHex, err)
+			}
+			handles = append(handles, string(b))
+		}
+	}
+	return handles, nil
 }

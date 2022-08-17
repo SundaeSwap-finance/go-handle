@@ -34,6 +34,7 @@ import (
 )
 
 // Temporary resolver that uses http, waiting for https://github.com/blockfrost/blockfrost-go/pull/60 to get merged
+// Doesn't bother with pagination for now
 
 type BlockfrostWebResolver struct {
 	key string
@@ -85,4 +86,92 @@ func (b BlockfrostWebResolver) FindAsset(ctx context.Context, policyId string, a
 	return gohandle.AssetAddress{
 		Address: assetAddr[0].Address,
 	}, nil
+}
+
+func (b BlockfrostWebResolver) LookupAddress(ctx context.Context, address string) ([]gohandle.AssetQuantity, error) {
+	base := ""
+	if strings.HasPrefix(b.key, "mainnet") {
+		base = "https://cardano-mainnet.blockfrost.io/api/v0"
+	} else if strings.HasPrefix(b.key, "testnet") {
+		base = "https://cardano-testnet.blockfrost.io/api/v0"
+	} else {
+		return nil, fmt.Errorf("unrecognized environment")
+	}
+	switch {
+	case strings.HasPrefix(address, "stake"):
+		url := fmt.Sprintf("%v/accounts/%v/addresses/assets", base, address)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query blockfrost: %w", err)
+		}
+		req.Header.Add("project_id", b.key)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query blockfrost: %w", err)
+		}
+		defer resp.Body.Close()
+
+		respBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read blockfrost response: %w", err)
+		}
+
+		type AssetAmt struct {
+			Unit     string `json:"unit"`
+			Quantity string `json:"quantity"`
+		}
+		var assetAmts []AssetAmt
+		if err := json.Unmarshal(respBytes, &assetAmts); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal blockfrost response: %w", err)
+		}
+
+		var ret []gohandle.AssetQuantity
+		for _, each := range assetAmts {
+			ret = append(ret, gohandle.AssetQuantity{
+				Asset:    each.Unit,
+				Quantity: each.Quantity,
+			})
+		}
+		return ret, nil
+	case strings.HasPrefix(address, "addr"):
+		url := fmt.Sprintf("%v/addresses/%v/utxos", base, address)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query blockfrost: %w", err)
+		}
+		req.Header.Add("project_id", b.key)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query blockfrost: %w", err)
+		}
+		defer resp.Body.Close()
+
+		respBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read blockfrost response: %w", err)
+		}
+
+		type AddressUTXOs struct {
+			Amount []struct {
+				Unit     string `json:"unit"`
+				Quantity string `json:"quantity"`
+			} `json:"amount"`
+		}
+		var utxos []AddressUTXOs
+		if err := json.Unmarshal(respBytes, &utxos); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal blockfrost response: %w", err)
+		}
+
+		var ret []gohandle.AssetQuantity
+		for _, utxo := range utxos {
+			for _, each := range utxo.Amount {
+				ret = append(ret, gohandle.AssetQuantity{
+					Asset:    each.Unit,
+					Quantity: each.Quantity,
+				})
+			}
+		}
+		return ret, nil
+	}
+	return nil, fmt.Errorf("unrecognized address %v", address)
 }
