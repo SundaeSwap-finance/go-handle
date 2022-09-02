@@ -39,6 +39,7 @@ type Environment string
 const (
 	Mainnet Environment = "mainnet"
 	Testnet Environment = "testnet"
+	Preview Environment = "preview"
 )
 
 type AssetAddress struct {
@@ -57,25 +58,25 @@ type Resolver interface {
 
 type Client struct {
 	env      Environment
-	policyId string
 	resolver Resolver
 }
 
-func envToPolicyId(env Environment) string {
+func envToPolicyId(env Environment) (string, error) {
 	switch env {
 	case Mainnet:
-		return MainnetPolicyId
+		return MainnetPolicyId, nil
+	case Preview:
+		fallthrough
 	case Testnet:
-		return TestnetPolicyId
+		return TestnetPolicyId, nil
 	default:
-		return ""
+		return "", fmt.Errorf("invalid environment")
 	}
 }
 
 func New(environment Environment, resolver Resolver) Client {
 	return Client{
 		env:      environment,
-		policyId: envToPolicyId(environment),
 		resolver: resolver,
 	}
 }
@@ -87,13 +88,14 @@ func (c Client) ResolveAddress(handle string) (address string, err error) {
 func (c Client) ResolveAddressWithContext(ctx context.Context, handle string) (address string, err error) {
 	handle = strings.TrimPrefix(handle, "$")
 
-	if c.policyId == "" {
-		return "", fmt.Errorf("unrecognized environment: %v", c.env)
+	policyId, err := envToPolicyId(c.env)
+	if err != nil {
+		return "", err
 	}
 
 	handleHex := hex.EncodeToString([]byte(handle))
 
-	addr, err := c.resolver.FindAsset(ctx, c.policyId, handleHex)
+	addr, err := c.resolver.FindAsset(ctx, policyId, handleHex)
 	if err != nil {
 		return "", fmt.Errorf("unable to resolve handle: %w", err)
 	}
@@ -105,11 +107,14 @@ func (c Client) LookupHandles(address string) (handles []string, err error) {
 }
 
 func (c Client) LookupHandlesWithContext(ctx context.Context, address string) (handles []string, err error) {
+	policyId, err := envToPolicyId(c.env)
+	if err != nil {
+		return nil, err
+	}
 	assets, err := c.resolver.LookupAddress(ctx, address)
 	if err != nil {
 		return nil, fmt.Errorf("unable to lookup address: %w", err)
 	}
-	policyId := envToPolicyId(c.env)
 	for _, asset := range assets {
 		if strings.HasPrefix(asset.Asset, policyId) {
 			handleHex := strings.TrimPrefix(asset.Asset, policyId)
