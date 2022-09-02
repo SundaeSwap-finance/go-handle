@@ -46,18 +46,24 @@ func New(key string) BlockfrostWebResolver {
 	}
 }
 
-func (b BlockfrostWebResolver) FindAsset(ctx context.Context, policyId string, assetNameHex string) (gohandle.AssetAddress, error) {
-	base := ""
+func (b BlockfrostWebResolver) BaseUrl() (string, error) {
 	if strings.HasPrefix(b.key, "mainnet") {
-		base = "https://cardano-mainnet.blockfrost.io/api/v0"
+		return "https://cardano-mainnet.blockfrost.io/api/v0", nil
 	} else if strings.HasPrefix(b.key, "testnet") {
-		base = "https://cardano-testnet.blockfrost.io/api/v0"
+		return "https://cardano-testnet.blockfrost.io/api/v0", nil
 	} else if strings.HasPrefix(b.key, "preview") {
-		base = "https://cardano-preview.blockfrost.io/api/v0"
+		return "https://cardano-preview.blockfrost.io/api/v0", nil
 	} else if strings.HasPrefix(b.key, "preprod") {
-		base = "https://cardano-preprod.blockfrost.io/api/v0"
+		return "https://cardano-preprod.blockfrost.io/api/v0", nil
 	} else {
-		return gohandle.AssetAddress{}, fmt.Errorf("unrecognized environment")
+		return "", fmt.Errorf("unrecognized environment")
+	}
+}
+
+func (b BlockfrostWebResolver) FindAsset(ctx context.Context, policyId string, assetNameHex string) (gohandle.AssetAddress, error) {
+	base, err := b.BaseUrl()
+	if err != nil {
+		return gohandle.AssetAddress{}, err
 	}
 	url := fmt.Sprintf("%v/assets/%v%v/addresses", base, policyId, assetNameHex)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -93,13 +99,9 @@ func (b BlockfrostWebResolver) FindAsset(ctx context.Context, policyId string, a
 }
 
 func (b BlockfrostWebResolver) LookupAddress(ctx context.Context, address string) ([]gohandle.AssetQuantity, error) {
-	base := ""
-	if strings.HasPrefix(b.key, "mainnet") {
-		base = "https://cardano-mainnet.blockfrost.io/api/v0"
-	} else if strings.HasPrefix(b.key, "testnet") {
-		base = "https://cardano-testnet.blockfrost.io/api/v0"
-	} else {
-		return nil, fmt.Errorf("unrecognized environment")
+	base, err := b.BaseUrl()
+	if err != nil {
+		return nil, err
 	}
 	switch {
 	case strings.HasPrefix(address, "stake"):
