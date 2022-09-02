@@ -52,6 +52,10 @@ func (b BlockfrostWebResolver) FindAsset(ctx context.Context, policyId string, a
 		base = "https://cardano-mainnet.blockfrost.io/api/v0"
 	} else if strings.HasPrefix(b.key, "testnet") {
 		base = "https://cardano-testnet.blockfrost.io/api/v0"
+	} else if strings.HasPrefix(b.key, "preview") {
+		base = "https://cardano-preview.blockfrost.io/api/v0"
+	} else if strings.HasPrefix(b.key, "preprod") {
+		base = "https://cardano-preprod.blockfrost.io/api/v0"
 	} else {
 		return gohandle.AssetAddress{}, fmt.Errorf("unrecognized environment")
 	}
