@@ -3,7 +3,7 @@ module github.com/SundaeSwap-finance/go-handle
 go 1.17
 
 require (
-	github.com/blockfrost/blockfrost-go v0.1.0
+	github.com/blockfrost/blockfrost-go v0.1.1-0.20220922145443-777ce58a8d3b
 	github.com/tj/assert v0.0.3
 )
 

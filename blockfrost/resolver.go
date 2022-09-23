@@ -45,7 +45,7 @@ func New(key string) BlockfrostResolver {
 }
 
 func (b BlockfrostResolver) FindAsset(ctx context.Context, policyId string, assetNameHex string) (gohandle.AssetAddress, error) {
-	addresses, err := b.client.AssetAddresses(ctx, fmt.Sprintf("%v%v", policyId, assetNameHex))
+	addresses, err := b.client.AssetAddresses(ctx, fmt.Sprintf("%v%v", policyId, assetNameHex), bfrost.APIQueryParams{})
 	if err != nil {
 		return gohandle.AssetAddress{}, fmt.Errorf("unable to fetch asset addresses from blockfrost: %w", err)
 	}
